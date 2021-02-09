@@ -21,22 +21,23 @@ var web3 = new Web3(config.url);
 
 var bridgeContract = new web3.eth.Contract(BridgeABI, config.address);
 
-bridgeContract.getPastEvents("ProposalEvent", {fromBlock: config.fromBlock}, (err, data) => {
-    const element = e => {
+bridgeContract.getPastEvents("Deposit", {fromBlock: config.fromBlock}, (err, data) => {
+    const getData = async e => {
+        // console.log("e", e);
+        const tx = await web3.eth.getTransaction(e.transactionHash);
         console.log(
-            "originChainID", e.returnValues.originChainID,
-            "depositNonce", e.returnValues.depositNonce,
-            "status", e.returnValues.status,
+            "destinationChainID", e.returnValues.destinationChainID,
             "resourceID", e.returnValues.resourceID,
-            "dataHash", e.returnValues.dataHash,
-        );
+            "depositNonce", e.returnValues.depositNonce,
+            "data", "0x" + tx.input.slice(266)
+        )
     };
     if (Array.isArray(data)) {
         data.map(e => {
-            element(e);
+            getData(e);
         });
     } else {
-        element(data);
+        getData(data);
     }
 
 }).catch(console.error);
