@@ -1,5 +1,6 @@
 const Web3 = require('web3');
 const BridgeABI = require("./build/Bridge").abi;
+const lodash = require("lodash");
 
 const ETH = {
     name: "ETH",
@@ -54,13 +55,9 @@ function sleep(ms) {
 
         }).catch(console.error);
 
-        proposalsAll.sort((a, b) => {
-            if (a.blockNumber !== b.blockNumber) {
-                return a.blockNumber > b.blockNumber;
-            }
+        lodash.sortBy(proposalsAll, ["blockNumber", "transactionIndex"]);
 
-            return a.transactionIndex > b.transactionIndex;
-        });
+        // console.log('proposalsAll', JSON.stringify(proposalsAll, null, 4));
 
         for (let e of proposalsAll) {
             proposals[e.depositNonce] = e;
@@ -107,6 +104,8 @@ function sleep(ms) {
                 if (proposal.status !== "3")
                     console.log(
                         "stuck in", targetChain.config.name,
+                        "blockNumber", proposal.blockNumber,
+                        "transactionIndex", proposal.transactionIndex,
                         "originChainID", proposal.originChainID,
                         "depositNonce", proposal.depositNonce,
                         "status", proposal.status,
@@ -116,6 +115,8 @@ function sleep(ms) {
                     );
             } catch (e) {
                 console.error("can't resolve data for proposal in", targetChain.config.name,
+                    "blockNumber", proposal.blockNumber,
+                    "transactionIndex", proposal.transactionIndex,
                     "originChainID", proposal.originChainID,
                     "depositNonce", proposal.depositNonce,
                     "status", proposal.status,
@@ -129,4 +130,5 @@ function sleep(ms) {
     print(fromETH, fromAVA);
     console.log("--------------------");
     print(fromAVA, fromETH);
+    // console.log('fromETH', fromETH);
 })();
