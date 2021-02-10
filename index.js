@@ -3,10 +3,11 @@ const BridgeABI = require("./build/Bridge").abi;
 
 const ETH = {
     name: "ETH",
-    url: 'https://mainnet.infura.io/v3/d5e486fedb5145e8bd90d3d5b36a1ba9',
+    url: 'wss://mainnet.infura.io/ws/v3/d5e486fedb5145e8bd90d3d5b36a1ba9',
     fromBlock: '11739872',
     address: '0x278cDd6847ef830c23cac61C17Eab837fEa1C29A',
     erc20HandlerAddress: '0xB8B493600A5b200Ca2c58fFA9dced00694fB3E38',
+    ws: true,
 };
 const AVA = {
     name: "AVA",
@@ -14,6 +15,7 @@ const AVA = {
     fromBlock: '34246',
     address: "0xee8aE1088D02CCDA2CDd0FdA2381DB679d0b122E",
     erc20HandlerAddress: "0x40a07f36655A0724557cA53A9E5D1b5018e9Df32",
+    ws: false,
 };
 
 function sleep(ms) {
@@ -22,7 +24,8 @@ function sleep(ms) {
 
 (async () => {
     const fetch = async (config) => {
-        const web3 = new Web3(new Web3.providers.HttpProvider(config.url));
+        const Provider = config.ws ? Web3.providers.WebsocketProvider : Web3.providers.HttpProvider;
+        const web3 = new Web3(new Provider(config.url));
         const bridgeContract = new web3.eth.Contract(BridgeABI, config.address);
         const proposals = {};
         const deposits = {};
@@ -38,7 +41,7 @@ function sleep(ms) {
                     });
                 } catch (err) {
                     // console.error(err);
-                    console.error("can't process event",event);
+                    console.error("can't process event", event);
                 }
             };
             if (Array.isArray(data)) {
@@ -59,9 +62,9 @@ function sleep(ms) {
             return a.transactionIndex > b.transactionIndex;
         });
 
-        proposalsAll.map(e => {
-            proposals[e.dataHash] = e;
-        });
+        for (let e of proposalsAll) {
+            proposals[e.depositNonce] = e;
+        }
 
         await bridgeContract.getPastEvents("Deposit", {fromBlock: config.fromBlock}, (err, data) => {
             const getData = async event => {
