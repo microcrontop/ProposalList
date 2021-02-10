@@ -14,8 +14,8 @@ const AVA = {
     erc20HandlerAddress: "0x40a07f36655A0724557cA53A9E5D1b5018e9Df32",
 };
 
-const config = ETH;
-// const config = AVA;
+// const config = ETH;
+const config = AVA;
 
 var web3 = new Web3(config.url);
 

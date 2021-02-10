@@ -58,7 +58,6 @@ var proposalsAll = [];
         const e = proposals[key];
         if (e.status !== "3")
             console.log(
-                "collect",
                 "originChainID", e.originChainID,
                 "depositNonce", e.depositNonce,
                 "status", e.status,
