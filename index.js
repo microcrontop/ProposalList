@@ -14,29 +14,56 @@ const AVA = {
     erc20HandlerAddress: "0x40a07f36655A0724557cA53A9E5D1b5018e9Df32",
 };
 
-const config = ETH;
-// const config = AVA;
+// const config = ETH;
+const config = AVA;
 
 var web3 = new Web3(config.url);
 
 var bridgeContract = new web3.eth.Contract(BridgeABI, config.address);
 
-bridgeContract.getPastEvents("ProposalEvent", {fromBlock: config.fromBlock}, (err, data) => {
-    const element = e => {
-        console.log(
-            "originChainID", e.returnValues.originChainID,
-            "depositNonce", e.returnValues.depositNonce,
-            "status", e.returnValues.status,
-            "resourceID", e.returnValues.resourceID,
-            "dataHash", e.returnValues.dataHash,
-        );
-    };
-    if (Array.isArray(data)) {
-        data.map(e => {
-            element(e);
-        });
-    } else {
-        element(data);
-    }
+var proposals = {};
+var proposalsAll = [];
 
-}).catch(console.error);
+
+(async () => {
+
+    await bridgeContract.getPastEvents("ProposalEvent", {fromBlock: config.fromBlock}, (err, data) => {
+        const process = e => {
+            proposalsAll.push({...e.returnValues, blockNumber: e.blockNumber, transactionIndex: e.transactionIndex});
+        };
+        if (Array.isArray(data)) {
+            data.map(e => {
+                process(e);
+            });
+        } else {
+            process(data);
+        }
+
+    }).catch(console.error);
+
+    proposalsAll.sort((a, b) => {
+        if (a.blockNumber !== b.blockNumber) {
+            return a.blockNumber > b.blockNumber;
+        }
+
+        return a.transactionIndex > b.transactionIndex;
+    });
+
+    proposalsAll.map(e => {
+        proposals[e.dataHash] = e;
+    });
+
+    console.log('--------------last status---------------------------');
+    for (let key in proposals) {
+        const e = proposals[key];
+        if (e.status !== "3")
+            console.log(
+                "collect",
+                "originChainID", e.originChainID,
+                "depositNonce", e.depositNonce,
+                "status", e.status,
+                "resourceID", e.resourceID,
+                "dataHash", e.dataHash,
+            );
+    }
+})();
