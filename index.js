@@ -24,6 +24,8 @@ function sleep(ms) {
 }
 
 (async () => {
+    let lastUpdate = Date.now();
+
     const fetch = async (config) => {
         const Provider = config.ws ? Web3.providers.WebsocketProvider : Web3.providers.HttpProvider;
         const web3 = new Web3(new Provider(config.url));
@@ -52,7 +54,7 @@ function sleep(ms) {
             } else {
                 process(data);
             }
-
+            lastUpdate = Date.now();
         }).catch(console.error);
 
         lodash.sortBy(proposalsAll, ["blockNumber", "transactionIndex"]);
@@ -61,7 +63,7 @@ function sleep(ms) {
             proposals[e.depositNonce] = e;
         }
 
-        await bridgeContract.getPastEvents("Deposit", {fromBlock: config.fromBlock}, (err, data) => {
+        await bridgeContract.getPastEvents("Deposit", {fromBlock: config.fromBlock}, async (err, data) => {
             const getData = async event => {
                 try {
                     await sleep(50);
@@ -71,17 +73,18 @@ function sleep(ms) {
                         "resourceID": event.returnValues.resourceID,
                         "depositNonce": event.returnValues.depositNonce,
                         "data": "0x" + tx.input.slice(266)
-                    }
+                    };
+                    lastUpdate = Date.now();
                 } catch (e) {
                     console.error("can't find tx for", event.transactionHash, "in", config.name);
                 }
             };
             if (Array.isArray(data)) {
-                data.map(e => {
-                    getData(e);
-                });
+                for (let e in data) {
+                    await getData(data[e]);
+                }
             } else {
-                getData(data);
+                await getData(data);
             }
         }).catch(console.error);
 
@@ -94,6 +97,12 @@ function sleep(ms) {
 
     const fromETH = await fetch(ETH);
     const fromAVA = await fetch(AVA);
+
+    await (async () => {
+        while (lastUpdate + 10000 > Date.now()) {
+            await sleep(1000);
+        }
+    })();
 
     const print = (targetChain, homeChain) => {
         for (let key in targetChain.proposals) {
