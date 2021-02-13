@@ -72,7 +72,7 @@ function sleep(ms) {
                         "destinationChainID": event.returnValues.destinationChainID,
                         "resourceID": event.returnValues.resourceID,
                         "depositNonce": event.returnValues.depositNonce,
-                        "data": "0x" + tx.input.slice(266)
+                        "data": "0x" + tx.input.slice(266).slice(0, 168),
                     };
                     lastUpdate = Date.now();
                 } catch (e) {
