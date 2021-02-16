@@ -1,6 +1,5 @@
 var Web3 = require('web3');
-var BridgeABI = require("./build/Bridge").abi;e").abi;
-const BN = require("bn.js");
+var BridgeABI = require("./build/Bridge").abi;
 
 const ETH = {
     url: 'https://mainnet.infura.io/v3/45174a29359d4b07ade01676259bc47a',

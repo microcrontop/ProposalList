@@ -1,5 +1,6 @@
 const Web3 = require('web3');
 const BridgeABI = require("./build/Bridge").abi;
+const lodash = require("lodash");
 
 const ETH = {
     name: "ETH",
@@ -29,7 +30,39 @@ function sleep(ms) {
         const Provider = config.ws ? Web3.providers.WebsocketProvider : Web3.providers.HttpProvider;
         const web3 = new Web3(new Provider(config.url));
         const bridgeContract = new web3.eth.Contract(BridgeABI, config.address);
+        const proposals = {};
         const deposits = {};
+        let proposalsAll = [];
+
+        await bridgeContract.getPastEvents("ProposalEvent", {fromBlock: config.fromBlock}, (err, data) => {
+            const process = event => {
+                try {
+                    proposalsAll.push({
+                        ...event.returnValues,
+                        blockNumber: event.blockNumber,
+                        transactionIndex: event.transactionIndex
+                    });
+                    lastUpdate = Date.now();
+                } catch (err) {
+                    // console.error(err);
+                    console.error("can't process event", event);
+                }
+            };
+            if (Array.isArray(data)) {
+                data.map(e => {
+                    process(e);
+                });
+            } else {
+                process(data);
+            }
+            lastUpdate = Date.now();
+        }).catch(console.error);
+
+        lodash.sortBy(proposalsAll, ["blockNumber", "transactionIndex"]);
+
+        for (let e of proposalsAll) {
+            proposals[e.depositNonce] = e;
+        }
 
         await bridgeContract.getPastEvents("Deposit", {fromBlock: config.fromBlock}, async (err, data) => {
             const getData = async event => {
@@ -65,6 +98,7 @@ function sleep(ms) {
 
         return {
             config,
+            proposals,
             deposits,
         }
     };
@@ -78,18 +112,32 @@ function sleep(ms) {
         }
     })();
 
+    const checkAll = (targetChain, homeChain) => {
+        for (let key in targetChain.proposals) {
+            const proposal = targetChain.proposals[key];
+            try {
+                homeChain.deposits[proposal.depositNonce].used = true;
+            } catch (e) {
+            }
+        }
+    };
+
+    checkAll(fromETH, fromAVA);
+    checkAll(fromAVA, fromETH);
+
     const print = (homeChain) => {
         for (let key in homeChain.deposits) {
-            console.log(
-                "chain name", homeChain.config.name,
-                "destinationChainID", homeChain.deposits[key].destinationChainID,
-                "resourceID", homeChain.deposits[key].resourceID,
-                "depositNonce", homeChain.deposits[key].depositNonce,
-                "transactionHash", homeChain.deposits[key].transactionHash,
-                "amount", homeChain.deposits[key].amount,
-                "recipient", homeChain.deposits[key].recipient,
-                "data", homeChain.deposits[key].data,
-            );
+            if (!homeChain.deposits[key].used)
+                console.log(
+                    "deposit without proposal in", homeChain.config.name,
+                    "destinationChainID", homeChain.deposits[key].destinationChainID,
+                    "resourceID", homeChain.deposits[key].resourceID,
+                    "depositNonce", homeChain.deposits[key].depositNonce,
+                    "transactionHash", homeChain.deposits[key].transactionHash,
+                    "amount", homeChain.deposits[key].amount,
+                    "recipient", homeChain.deposits[key].recipient,
+                    "data", homeChain.deposits[key].data,
+                );
         }
     };
 
