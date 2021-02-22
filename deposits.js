@@ -30,38 +30,45 @@ function sleep(ms) {
         const web3 = new Web3(new Provider(config.url));
         const bridgeContract = new web3.eth.Contract(BridgeABI, config.address);
         const deposits = {};
+        const latest = await web3.eth.getBlockNumber();
+        const blocksRangeForEventFetch = 1000;
 
-        await bridgeContract.getPastEvents("Deposit", {fromBlock: config.fromBlock}, async (err, data) => {
-            const getData = async event => {
-                try {
-                    await sleep(50);
-                    const tx = await web3.eth.getTransaction(event.transactionHash).catch(console.error);
-                    const data = "0x" + tx.input.slice(266).slice(0, 168);
-                    let amount = data.slice(0, 66);
-                    amount = (web3.utils.toBN(amount)).toString();
-                    const recipient = "0x" + data.slice(130);
-                    deposits[event.returnValues.depositNonce] = {
-                        "destinationChainID": event.returnValues.destinationChainID,
-                        "resourceID": event.returnValues.resourceID,
-                        "depositNonce": event.returnValues.depositNonce,
-                        "transactionHash": event.transactionHash,
-                        "amount": amount,
-                        "recipient": recipient,
-                        "data": data,
-                    };
-                    lastUpdate = Date.now();
-                } catch (e) {
-                    console.error("can't find tx for", event.transactionHash, "in", config.name);
+        for (let blockNumber = config.fromBlock; blockNumber < latest; blockNumber += blocksRangeForEventFetch) {
+            await bridgeContract.getPastEvents("Deposit", {
+                fromBlock: blockNumber,
+                toBlock: blockNumber + blocksRangeForEventFetch
+            }, async (err, data) => {
+                const getData = async event => {
+                    try {
+                        await sleep(50);
+                        const tx = await web3.eth.getTransaction(event.transactionHash).catch(console.error);
+                        const data = "0x" + tx.input.slice(266).slice(0, 168);
+                        let amount = data.slice(0, 66);
+                        amount = (web3.utils.toBN(amount)).toString();
+                        const recipient = "0x" + data.slice(130);
+                        deposits[event.returnValues.depositNonce] = {
+                            "destinationChainID": event.returnValues.destinationChainID,
+                            "resourceID": event.returnValues.resourceID,
+                            "depositNonce": event.returnValues.depositNonce,
+                            "transactionHash": event.transactionHash,
+                            "amount": amount,
+                            "recipient": recipient,
+                            "data": data,
+                        };
+                        lastUpdate = Date.now();
+                    } catch (e) {
+                        console.error("can't find tx for", event.transactionHash, "in", config.name);
+                    }
+                };
+                if (Array.isArray(data)) {
+                    for (let e in data) {
+                        await getData(data[e]);
+                    }
+                } else {
+                    await getData(data);
                 }
-            };
-            if (Array.isArray(data)) {
-                for (let e in data) {
-                    await getData(data[e]);
-                }
-            } else {
-                await getData(data);
-            }
-        }).catch(console.error);
+            }).catch(console.error);
+        }
 
         return {
             config,
@@ -73,7 +80,7 @@ function sleep(ms) {
     const fromAVA = await fetch(AVA);
 
     await (async () => {
-        while (lastUpdate + 10000 > Date.now()) {
+        while (lastUpdate + 60000 > Date.now()) {
             await sleep(1000);
         }
     })();
